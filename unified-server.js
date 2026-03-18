@@ -2,9 +2,8 @@ const express = require('express');
 // const fs = require('fs'); // Removed local filesystem dependency
 const path = require('path');
 const cors = require('cors');
-const firebaseCompat = require('firebase/compat/app');
-const firebase = firebaseCompat.default || firebaseCompat;
-require('firebase/compat/firestore');
+const { initializeApp } = require('firebase/app');
+const { getFirestore, doc, getDoc, setDoc } = require('firebase/firestore/lite');
 
 const firebaseConfig = {
   apiKey: "AIzaSyCWWohFOD9O_UbsgtLNZ-VzzMGm9F2b0yI",
@@ -16,13 +15,9 @@ const firebaseConfig = {
   measurementId: "G-CH5FYK5SQB"
 };
 
-// Initialize Firebase
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
-const db = firebase.firestore();
-// CRITICAL: Prevent Vercel Serverless Function hanging by disabling Firestore WebSockets/gRPC
-db.settings({ experimentalForceLongPolling: true, merge: true });
+// Initialize Firebase using the strictly REST-based Modular Lite SDK (Safe for Vercel Edge/Node)
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -42,9 +37,9 @@ app.use(express.static(path.join(__dirname, 'build')));
 // Helper functions for Firebase Firestore storage
 const readData = async (name, defaultValue = []) => {
   try {
-    const docRef = db.collection('data').doc(name);
-    const docSnap = await docRef.get();
-    if (docSnap.exists) {
+    const docRef = doc(db, 'data', name);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
       return docSnap.data().items || defaultValue;
     }
   } catch (error) {
@@ -55,7 +50,8 @@ const readData = async (name, defaultValue = []) => {
 
 const writeData = async (name, data) => {
   try {
-    await db.collection('data').doc(name).set({ items: data }, { merge: true });
+    const docRef = doc(db, 'data', name);
+    await setDoc(docRef, { items: data });
     return true;
   } catch (error) {
     console.error(`Error writing ${name} to Firestore:`, error);

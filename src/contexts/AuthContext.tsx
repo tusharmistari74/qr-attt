@@ -12,7 +12,7 @@ interface AuthContextType {
   isLoading: boolean
   isAuthenticated: boolean
   login: (email: string, password: string, role: 'admin' | 'teacher') => Promise<{success: boolean, error?: string}>
-  studentLogin: (mobileNumber: string, otp: string) => Promise<boolean>
+  studentLogin: (mobileNumber: string, otp: string) => Promise<any>
   requestOtp: (mobileNumber: string) => Promise<any>
   logout: () => Promise<void>
   refreshSession: () => Promise<void>
@@ -167,17 +167,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // 2. Obtain JWT session token from our backend
       const response = await apiClient.studentFirebaseLogin(mobileNumber);
 
-      if (response.success && response.user && response.token) {
+      if (response && response.success && response.user && response.token) {
         apiClient.setToken(response.token);
         console.log('Student login successful, token set:', response.token.substring(0, 10) + '...');
         setUser(response.user);
-        return true;
+        return { success: true };
       }
       
-      return false;
+      return { success: false, error: response?.error || 'Authentication failed' };
     } catch (error) {
       console.error('Student login error:', error);
-      return false;
+      return { success: false, error: String(error) };
     } finally {
       setIsLoading(false);
     }
