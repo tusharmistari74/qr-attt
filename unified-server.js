@@ -2,7 +2,8 @@ const express = require('express');
 // const fs = require('fs'); // Removed local filesystem dependency
 const path = require('path');
 const cors = require('cors');
-const firebase = require('firebase/compat/app').default;
+const firebaseCompat = require('firebase/compat/app');
+const firebase = firebaseCompat.default || firebaseCompat;
 require('firebase/compat/firestore');
 
 const firebaseConfig = {
