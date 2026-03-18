@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { apiClient, User } from '../utils/api'
 
+declare global {
+  interface Window {
+    recaptchaVerifier: any;
+  }
+}
+
 interface AuthContextType {
   user: User | null
   isLoading: boolean
@@ -115,37 +121,65 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+
   const requestOtp = async (mobileNumber: string): Promise<any> => {
     try {
-      const response = await apiClient.studentRequestOtp(mobileNumber)
-      // Return the full response so callers (LoginPage) can access dev-only OTP values
-      return response
+      // Import here to avoid early initialization issues before auth is ready
+      const { RecaptchaVerifier, signInWithPhoneNumber } = await import('firebase/auth');
+      const { auth } = await import('../firebase');
+
+      if (!window.recaptchaVerifier) {
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'size': 'invisible',
+        });
+      }
+      
+      const appVerifier = window.recaptchaVerifier;
+      const formattedNumber = mobileNumber.startsWith('+') ? mobileNumber : `+91${mobileNumber}`;
+      
+      const confirmation = await signInWithPhoneNumber(auth, formattedNumber, appVerifier);
+      setConfirmationResult(confirmation);
+      return { success: true };
     } catch (error) {
-      console.error('OTP request error:', error)
-      return { success: false, error: (error as any)?.message || String(error) }
+      console.error('OTP request error:', error);
+      // Reset recaptcha if error occurs so user can try again
+      if (window.recaptchaVerifier) {
+        window.recaptchaVerifier.clear();
+        window.recaptchaVerifier = null;
+      }
+      return { success: false, error: (error as any)?.message || String(error) };
     }
   }
 
   const studentLogin = async (mobileNumber: string, otp: string): Promise<boolean> => {
     try {
-      setIsLoading(true)
+      setIsLoading(true);
       
-      const response = await apiClient.studentVerifyOtp(mobileNumber, otp)
-
-      if (response.success && response.user && response.token) {
-        // Ensure token is properly set in the API client
-        apiClient.setToken(response.token)
-        console.log('Student login successful, token set:', response.token.substring(0, 10) + '...')
-        setUser(response.user)
-        return true
+      if (!confirmationResult) {
+        console.error("No confirmation result available. Please request OTP first.");
+        return false;
       }
       
-      return false
+      // 1. Verify OTP with Firebase
+      await confirmationResult.confirm(otp);
+      
+      // 2. Obtain JWT session token from our backend
+      const response = await apiClient.studentFirebaseLogin(mobileNumber);
+
+      if (response.success && response.user && response.token) {
+        apiClient.setToken(response.token);
+        console.log('Student login successful, token set:', response.token.substring(0, 10) + '...');
+        setUser(response.user);
+        return true;
+      }
+      
+      return false;
     } catch (error) {
-      console.error('Student login error:', error)
-      return false
+      console.error('Student login error:', error);
+      return false;
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 

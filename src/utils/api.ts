@@ -921,6 +921,7 @@ class SharedServerApiClient {
   async adminLogin(email: string, password: string) { return this.request('/admin/login', { method: 'POST', body: JSON.stringify({ email, password }) }) }
   async teacherLogin(email: string, password: string) { return this.request('/teacher/login', { method: 'POST', body: JSON.stringify({ email, password }) }) }
   async studentRequestOtp(mobileNumber: string) { return this.request('/student/request-otp', { method: 'POST', body: JSON.stringify({ mobileNumber }) }) }
+  async studentFirebaseLogin(mobileNumber: string) { return this.request('/student/firebase-login', { method: 'POST', body: JSON.stringify({ mobileNumber }) }) }
   async studentVerifyOtp(mobileNumber: string, otp: string) { return this.request('/student/verify-otp', { method: 'POST', body: JSON.stringify({ mobileNumber, otp }) }) }
   async verifySession() { const t = this.getToken(); return this.request('/verify-session', { method: 'POST', body: JSON.stringify({ token: t }) }) }
   async logout() { this.clearToken(); return { success: true } }

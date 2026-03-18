@@ -95,12 +95,7 @@ export function LoginPage() {
 
       if (res && res.success) {
         setOtpSent(true)
-        // If the API returned the OTP (mock/dev), show it so testers can enter it
-        if (res.otp) {
-          setSuccess(`OTP sent (dev): ${res.otp}`)
-        } else {
-          setSuccess('OTP sent successfully! Check your messages.')
-        }
+        setSuccess('OTP sent successfully! Check your messages.')
         startOtpTimer()
       } else {
         const errMsg = res?.error || 'Failed to send OTP. Please check your mobile number.'
@@ -199,6 +194,8 @@ export function LoginPage() {
                           maxLength={10}
                         />
                       </div>
+                      
+                      <div id="recaptcha-container" className="flex justify-center mb-4"></div>
                       
                       <Button
                         onClick={handleRequestOtp}
