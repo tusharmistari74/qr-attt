@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Student Attendance App</title>
+    <link rel="stylesheet" href="/styles/globals.css" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#2B0230" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Attendance App" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module">
+      import React from 'react'
+      import ReactDOM from 'react-dom/client'
+      import MobileStudentApp from './MobileStudentApp.tsx'
+
+      // Register service worker for PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered: ', registration);
+            })
+            .catch((registrationError) => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(
+        React.createElement(React.StrictMode, null, React.createElement(MobileStudentApp))
+      )
+    </script>
+  </body>
+</html>

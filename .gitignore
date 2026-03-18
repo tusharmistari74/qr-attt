@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+android/
+.env
+server-data/
+server.log
+server-error.log
+.DS_Store
+ngrok.exe
