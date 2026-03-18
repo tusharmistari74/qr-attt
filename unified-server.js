@@ -20,6 +20,8 @@ if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
 }
 const db = firebase.firestore();
+// CRITICAL: Prevent Vercel Serverless Function hanging by disabling Firestore WebSockets/gRPC
+db.settings({ experimentalForceLongPolling: true, merge: true });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -554,14 +556,20 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n✅ Attendance Management System running on port ${PORT}`);
-  console.log(`📍 Local: http://localhost:${PORT}`);
-  console.log(`📍 Network: http://10.156.20.209:${PORT} (or your LAN IP)`);
-  console.log(`\n🔧 Database: Firebase Firestore\n`);
-});
+// Only start the server if not running on Vercel (Vercel uses module.exports)
+if (process.env.NODE_ENV !== 'production') {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`\n✅ Attendance Management System running on port ${PORT}`);
+    console.log(`📍 Local: http://localhost:${PORT}`);
+    console.log(`📍 Network: http://10.156.20.209:${PORT} (or your LAN IP)`);
+    console.log(`\n🔧 Database: Firebase Firestore\n`);
+  });
 
-server.on('error', (err) => {
-  console.error('Server error:', err);
-  process.exit(1);
-});
+  server.on('error', (err) => {
+    console.error('Server error:', err);
+    process.exit(1);
+  });
+}
+
+// Export the Express API for Vercel Node Runtime
+module.exports = app;
