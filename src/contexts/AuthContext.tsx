@@ -152,7 +152,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }
 
-  const studentLogin = async (mobileNumber: string, otp: string): Promise<boolean> => {
+  const studentLogin = async (mobileNumber: string, otp: string): Promise<any> => {
     try {
       setIsLoading(true);
       
