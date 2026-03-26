@@ -18,8 +18,11 @@ app.use((req, res, next) => {
 // Serve static files from the build directory
 app.use(express.static(path.join(__dirname, 'build')));
 
-// Data storage directory
-const DATA_DIR = path.join(__dirname, 'server-data');
+// Data storage directory (Vercel Serverless uses Read-Only filesystems, must use /tmp/)
+const DATA_DIR = process.env.NODE_ENV === 'production' || process.env.VERCEL 
+  ? '/tmp/server-data' 
+  : path.join(__dirname, 'server-data');
+
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
