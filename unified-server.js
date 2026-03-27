@@ -516,14 +516,19 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n✅ Attendance Management System running on port ${PORT}`);
-  console.log(`📍 Local: http://localhost:${PORT}`);
-  console.log(`📍 Network: http://10.156.20.209:${PORT} (or your LAN IP)`);
-  console.log(`\n🔧 Data directory: ${DATA_DIR}\n`);
-});
+// Only listen to port if run directly, otherwise export for Vercel Serverless
+if (require.main === module) {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`\n✅ Attendance Management System running on port ${PORT}`);
+    console.log(`📍 Local: http://localhost:${PORT}`);
+    console.log(`📍 Network: http://10.156.20.209:${PORT} (or your LAN IP)`);
+    console.log(`\n🔧 Data directory: ${DATA_DIR}\n`);
+  });
 
-server.on('error', (err) => {
-  console.error('Server error:', err);
-  process.exit(1);
-});
+  server.on('error', (err) => {
+    console.error('Server error:', err);
+    process.exit(1);
+  });
+}
+
+module.exports = app;
