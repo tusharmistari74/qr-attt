@@ -15,8 +15,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static files from the build directory
-app.use(express.static(path.join(__dirname, 'build')));
+// Serve static files from the dist directory
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Data storage directory (Vercel Serverless uses Read-Only filesystems, must use /tmp/)
 const DATA_DIR = process.env.NODE_ENV === 'production' || process.env.VERCEL 
@@ -513,7 +513,7 @@ app.get('/api/attendance', (req, res) => {
 
 // Serve the React app for all other routes (SPA fallback)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'build', 'index.html'));
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Only listen to port if run directly, otherwise export for Vercel Serverless
