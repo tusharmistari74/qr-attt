@@ -4,7 +4,7 @@ const path = require('path');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3003; // Hardcoded to 3003 to prevent Vite collision
 
 // Enable CORS for all routes
 app.use(cors());

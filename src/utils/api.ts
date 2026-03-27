@@ -1,4 +1,5 @@
-import { projectId, publicAnonKey } from './supabase/info'
+const projectId = '';
+const publicAnonKey = '';
 
 const API_BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-42dc3039`
 

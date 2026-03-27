@@ -62,6 +62,15 @@ export function AdminDashboard() {
 
   useEffect(() => {
     loadData()
+    
+    // Listen for real-time updates from the AdminPanel subscription
+    const handleDataChanged = () => {
+      console.log('Real-time update received, reloading admin data...')
+      loadData()
+    }
+    
+    window.addEventListener('dataChanged', handleDataChanged)
+    return () => window.removeEventListener('dataChanged', handleDataChanged)
   }, [])
 
   const loadData = async () => {
