@@ -2,6 +2,17 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+require('dotenv').config();
+const nodemailer = require('nodemailer');
+
+// Configure Nodemailer transporter
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // You can change this to another provider
+  auth: {
+    user: process.env.SMTP_USER || 'your.email@gmail.com',
+    pass: process.env.SMTP_PASS || 'your-app-password'
+  }
+});
 
 const app = express();
 const PORT = 3003; // Hardcoded to 3003 to prevent Vite collision
@@ -18,69 +29,60 @@ app.use((req, res, next) => {
 // Serve static files from the dist directory
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Data storage directory (Vercel Serverless uses Read-Only filesystems, must use /tmp/)
-const DATA_DIR = process.env.NODE_ENV === 'production' || process.env.VERCEL 
-  ? '/tmp/server-data' 
-  : path.join(__dirname, 'server-data');
+const { initializeApp } = require('firebase/app');
+const { getFirestore, collection, getDocs, doc, setDoc, getDoc } = require('firebase/firestore');
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
+const firebaseConfig = {
+  apiKey: "AIzaSyCWWohFOD9O_UbsgtLNZ-VzzMGm9F2b0yI",
+  authDomain: "smartqrattendance-82210.firebaseapp.com",
+  projectId: "smartqrattendance-82210",
+  storageBucket: "smartqrattendance-82210.firebasestorage.app",
+  messagingSenderId: "362391885515",
+  appId: "1:362391885515:web:ab977a09adf2f65caded4e",
+  measurementId: "G-CH5FYK5SQB"
+};
 
-// Helper functions for file-based storage
-const getDataFile = (name) => path.join(DATA_DIR, `${name}.json`);
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
 
-const readData = (name, defaultValue = []) => {
+const readData = async (name, defaultValue = []) => {
   try {
-    const file = getDataFile(name);
-    if (fs.existsSync(file)) {
-      return JSON.parse(fs.readFileSync(file, 'utf-8'));
+    const docRef = doc(db, 'collections', name);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return docSnap.data().data;
     }
   } catch (error) {
-    console.error(`Error reading ${name}:`, error);
+    console.error(`Error reading ${name} from Firebase:`, error);
   }
   return defaultValue;
 };
 
-const writeData = (name, data) => {
+const writeData = async (name, data) => {
   try {
-    const file = getDataFile(name);
-    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8');
+    const docRef = doc(db, 'collections', name);
+    await setDoc(docRef, { data });
     return true;
   } catch (error) {
-    console.error(`Error writing ${name}:`, error);
+    console.error(`Error writing ${name} to Firebase:`, error);
     return false;
   }
 };
 
-// Initialize with seeded data
-const initializeData = () => {
-  // Seed admin if not exists
-  let admins = readData('admins', []);
+const initializeData = async () => {
+  let admins = await readData('admins', []);
   if (admins.length === 0) {
-    admins = [
-      { id: 'admin1', email: 'admin@college.edu', password: 'admin123', name: 'System Administrator', role: 'admin', createdAt: new Date().toISOString() }
-    ];
-    writeData('admins', admins);
+    admins = [{ id: 'admin1', email: 'admin@college.edu', password: 'admin123', name: 'System Administrator', role: 'admin', createdAt: new Date().toISOString() }];
+    await writeData('admins', admins);
   }
 
-  // Seed teachers if not exists
-  let teachers = readData('teachers', []);
+  let teachers = await readData('teachers', []);
   if (teachers.length === 0) {
-    teachers = [
-      { id: 'teacher1', name: 'Demo Teacher', email: 'teacher@college.edu', password: 'teacher123', subjects: ['Math', 'Physics'], assignedClasses: [{ class: 'FY', division: 'A' }, { class: 'FY', division: 'B' }], role: 'teacher', createdAt: new Date().toISOString() }
-    ];
-    writeData('teachers', teachers);
+    teachers = [{ id: 'teacher1', name: 'Demo Teacher', email: 'teacher@college.edu', password: 'teacher123', subjects: ['Math', 'Physics'], assignedClasses: [{ class: 'FY', division: 'A' }, { class: 'FY', division: 'B' }], role: 'teacher', createdAt: new Date().toISOString() }];
+    await writeData('teachers', teachers);
   }
-
-  // Initialize other data structures if not exists
-  if (!fs.existsSync(getDataFile('students'))) writeData('students', []);
-  if (!fs.existsSync(getDataFile('sessions'))) writeData('sessions', []);
-  if (!fs.existsSync(getDataFile('attendance'))) writeData('attendance', []);
-  if (!fs.existsSync(getDataFile('qr-sessions'))) writeData('qr-sessions', []);
-  if (!fs.existsSync(getDataFile('otp-records'))) writeData('otp-records', []);
 };
-
+// We run initializeData asynchronously but don't await it here since it's top-level
 initializeData();
 
 // --- Server-Sent Events (SSE) support for live updates ---
@@ -98,7 +100,7 @@ function sendSseEvent(eventName, data) {
   })
 }
 
-app.get('/api/updates', (req, res) => {
+app.get('/api/updates', async (req, res) => {
   // Headers for SSE
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache')
@@ -118,14 +120,14 @@ app.get('/api/updates', (req, res) => {
 })
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
 // Admin login
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', async (req, res) => {
   const { email, password } = req.body;
-  const admins = readData('admins', []);
+  const admins = await readData('admins', []);
   console.log(`[DEBUG] Login attempt: email=${email}, password=${password}`);
   console.log(`[DEBUG] Found ${admins.length} admins in DB`);
   const admin = admins.find(a => a.email === email && a.password === password);
@@ -147,9 +149,9 @@ app.post('/api/admin/login', (req, res) => {
     createdAt: new Date().toISOString()
   };
 
-  const sessions = readData('sessions', []);
+  const sessions = await readData('sessions', []);
   sessions.push(session);
-  writeData('sessions', sessions);
+  await writeData('sessions', sessions);
 
   res.json({
     success: true,
@@ -160,9 +162,9 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 // Teacher login
-app.post('/api/teacher/login', (req, res) => {
+app.post('/api/teacher/login', async (req, res) => {
   const { email, password } = req.body;
-  const teachers = readData('teachers', []);
+  const teachers = await readData('teachers', []);
   const teacher = teachers.find(t => t.email === email && t.password === password);
 
   if (!teacher) {
@@ -181,9 +183,9 @@ app.post('/api/teacher/login', (req, res) => {
     createdAt: new Date().toISOString()
   };
 
-  const sessions = readData('sessions', []);
+  const sessions = await readData('sessions', []);
   sessions.push(session);
-  writeData('sessions', sessions);
+  await writeData('sessions', sessions);
 
   res.json({
     success: true,
@@ -194,34 +196,82 @@ app.post('/api/teacher/login', (req, res) => {
 });
 
 // Student login - OTP request
-app.post('/api/student/request-otp', (req, res) => {
+app.post('/api/student/request-otp', async (req, res) => {
   const { mobileNumber } = req.body;
+  if (!mobileNumber) {
+    return res.status(400).json({ error: 'Mobile number is required' });
+  }
+
+  const students = await readData('students', []);
+  const student = students.find(s => s.mobileNumber === mobileNumber);
+
+  if (!student || !student.studentEmail) {
+    return res.status(404).json({ error: 'Student not found or email not registered. Please contact Admin.' });
+  }
+
+  const studentEmail = student.studentEmail;
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-  const otpRecords = readData('otp-records', []);
-  otpRecords.push({
+  const otpRecords = await readData('otp-records', []);
+  // Remove existing OTPs for this mobile to prevent spam
+  const filteredRecords = otpRecords.filter(o => o.mobileNumber !== mobileNumber);
+  
+  filteredRecords.push({
     mobileNumber,
+    studentEmail,
     otp,
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
   });
-  writeData('otp-records', otpRecords);
+  await writeData('otp-records', filteredRecords);
 
-  res.json({
-    success: true,
-    message: 'OTP sent',
-    otp // Return OTP for dev/testing
-  });
+  try {
+    // Send Email
+    await transporter.sendMail({
+      from: `"Attendance System" <${process.env.SMTP_USER || 'your.email@gmail.com'}>`,
+      to: studentEmail,
+      subject: 'Your Login OTP',
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4; text-align: center;">
+          <h2 style="color: #3B0A45;">Attendance System Login</h2>
+          <p>Your One-Time Password (OTP) for login is:</p>
+          <div style="margin: 20px auto; padding: 10px; background-color: #ffffff; border-radius: 5px; font-size: 24px; font-weight: bold; letter-spacing: 2px; color: #333; width: fit-content;">
+            ${otp}
+          </div>
+          <p style="color: #666; font-size: 14px;">This OTP is valid for 10 minutes. Do not share it with anyone.</p>
+        </div>
+      `
+    });
+
+    res.json({
+      success: true,
+      message: 'OTP sent successfully to ' + studentEmail
+    });
+  } catch (error) {
+    console.error('Error sending email:', error);
+    res.status(500).json({ error: 'Failed to send OTP email. Please check server configuration.' });
+  }
 });
 
-// Student login - OTP verify
-app.post('/api/student/verify-otp', (req, res) => {
+// Student login - OTP verify (Original logic fallback)
+app.post('/api/student/verify-otp', async (req, res) => {
   const { mobileNumber, otp } = req.body;
-  const otpRecords = readData('otp-records', []);
+  const otpRecords = await readData('otp-records', []);
   const otpRecord = otpRecords.find(o => o.mobileNumber === mobileNumber && o.otp === otp && new Date() <= new Date(o.expiresAt));
 
   if (!otpRecord) {
-    return res.status(401).json({ error: 'Invalid OTP' });
+    return res.status(401).json({ error: 'Invalid or expired OTP' });
+  }
+
+  // Optionally mark OTP as used here or remove it
+  const filteredRecords = otpRecords.filter(o => o !== otpRecord);
+  await writeData('otp-records', filteredRecords);
+
+  const students = await readData('students', []);
+  let student = students.find(s => s.mobileNumber === mobileNumber);
+
+  if (!student) {
+    return res.status(404).json({ error: 'Student not found.' });
   }
 
   const token = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
@@ -230,40 +280,94 @@ app.post('/api/student/verify-otp', (req, res) => {
 
   const session = {
     token,
-    userId: 'student_' + mobileNumber,
+    userId: student.id,
     role: 'student',
     expiresAt: expiresAt.toISOString(),
     createdAt: new Date().toISOString()
   };
 
-  const sessions = readData('sessions', []);
+  const sessions = await readData('sessions', []);
   sessions.push(session);
-  writeData('sessions', sessions);
+  await writeData('sessions', sessions);
 
   res.json({
     success: true,
     token,
-    user: { id: 'student_' + mobileNumber, role: 'student', mobileNumber },
+    user: student,
+    expiresAt: expiresAt.toISOString()
+  });
+});
+
+// Student Login - Firebase Verified
+app.post('/api/student/firebase-login', async (req, res) => {
+  const { mobileNumber } = req.body;
+  
+  if (!mobileNumber) {
+    return res.status(400).json({ error: 'Missing mobile number' });
+  }
+
+  const students = await readData('students', []);
+  let student = students.find(s => s.mobileNumber === mobileNumber);
+
+  if (!student) {
+    student = {
+      id: 'student_' + mobileNumber,
+      name: `Student ${mobileNumber}`,
+      mobileNumber,
+      role: 'student',
+      prn: '',
+      rollNumber: '',
+      department: '',
+      class: '',
+      division: '',
+      hasAccess: true,
+      accessValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString()
+    };
+    students.push(student);
+    await writeData('students', students);
+  }
+
+  const token = 'firebase_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+  const expiresAt = new Date();
+  expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+  const session = {
+    token,
+    userId: student.id,
+    role: 'student',
+    expiresAt: expiresAt.toISOString(),
+    createdAt: new Date().toISOString()
+  };
+
+  const sessions = await readData('sessions', []);
+  sessions.push(session);
+  await writeData('sessions', sessions);
+
+  res.json({
+    success: true,
+    token,
+    user: student,
     expiresAt: expiresAt.toISOString()
   });
 });
 
 // Get all teachers
-app.get('/api/teachers', (req, res) => {
-  const teachers = readData('teachers', []);
+app.get('/api/teachers', async (req, res) => {
+  const teachers = await readData('teachers', []);
   res.json({ success: true, teachers });
 });
 
 // Get all students
-app.get('/api/students', (req, res) => {
-  const students = readData('students', []);
+app.get('/api/students', async (req, res) => {
+  const students = await readData('students', []);
   res.json({ success: true, students });
 });
 
 // Add teacher
-app.post('/api/admin/teachers', (req, res) => {
+app.post('/api/admin/teachers', async (req, res) => {
   const teacherData = req.body;
-  const teachers = readData('teachers', []);
+  const teachers = await readData('teachers', []);
   const newTeacher = {
     id: 'teacher_' + Date.now(),
     ...teacherData,
@@ -271,16 +375,16 @@ app.post('/api/admin/teachers', (req, res) => {
     createdAt: new Date().toISOString()
   };
   teachers.push(newTeacher);
-  writeData('teachers', teachers);
+  await writeData('teachers', teachers);
   // Notify clients that teachers list changed
   sendSseEvent('teachers:changed', { teacher: newTeacher })
   res.json({ success: true, teacher: newTeacher });
 });
 
 // Add student
-app.post('/api/admin/students', (req, res) => {
+app.post('/api/admin/students', async (req, res) => {
   const studentData = req.body;
-  const students = readData('students', []);
+  const students = await readData('students', []);
   const newStudent = {
     id: 'student_' + Date.now(),
     ...studentData,
@@ -290,17 +394,17 @@ app.post('/api/admin/students', (req, res) => {
     createdAt: new Date().toISOString()
   };
   students.push(newStudent);
-  writeData('students', students);
+  await writeData('students', students);
   // Notify clients that students list changed
   sendSseEvent('students:changed', { student: newStudent })
   res.json({ success: true, student: newStudent });
 });
 
 // Update teacher
-app.put('/api/admin/teachers/:id', (req, res) => {
+app.put('/api/admin/teachers/:id', async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
-  const teachers = readData('teachers', []);
+  const teachers = await readData('teachers', []);
   const index = teachers.findIndex(t => t.id === id);
 
   if (index === -1) {
@@ -316,17 +420,17 @@ app.put('/api/admin/teachers/:id', (req, res) => {
   };
 
   teachers[index] = updatedTeacher;
-  writeData('teachers', teachers);
+  await writeData('teachers', teachers);
   // Notify clients
   sendSseEvent('teachers:changed', { teacher: updatedTeacher });
   res.json({ success: true, teacher: updatedTeacher });
 });
 
 // Update student
-app.put('/api/admin/students/:id', (req, res) => {
+app.put('/api/admin/students/:id', async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
-  const students = readData('students', []);
+  const students = await readData('students', []);
   const index = students.findIndex(s => s.id === id);
 
   if (index === -1) {
@@ -342,39 +446,39 @@ app.put('/api/admin/students/:id', (req, res) => {
   };
 
   students[index] = updatedStudent;
-  writeData('students', students);
+  await writeData('students', students);
   // Notify clients
   sendSseEvent('students:changed', { student: updatedStudent });
   res.json({ success: true, student: updatedStudent });
 });
 
 // Delete teacher
-app.delete('/api/admin/teachers/:id', (req, res) => {
-  const teachers = readData('teachers', []);
+app.delete('/api/admin/teachers/:id', async (req, res) => {
+  const teachers = await readData('teachers', []);
   const filtered = teachers.filter(t => t.id !== req.params.id);
-  writeData('teachers', filtered);
+  await writeData('teachers', filtered);
   // Notify clients that teachers list changed
   sendSseEvent('teachers:changed', { deletedTeacherId: req.params.id })
   res.json({ success: true, message: 'Teacher deleted' });
 });
 
 // Delete student
-app.delete('/api/admin/students/:id', (req, res) => {
-  const students = readData('students', []);
+app.delete('/api/admin/students/:id', async (req, res) => {
+  const students = await readData('students', []);
   const filtered = students.filter(s => s.id !== req.params.id);
-  writeData('students', filtered);
+  await writeData('students', filtered);
   // Notify clients that students list changed
   sendSseEvent('students:changed', { deletedStudentId: req.params.id })
   res.json({ success: true, message: 'Student deleted' });
 });
 
 // Generate QR code
-app.post('/api/generate-qr', (req, res) => {
-  const { subject, class: className, division, duration } = req.body;
+app.post('/api/generate-qr', async (req, res) => {
+  const { subject, class: className, division, duration, teacherId } = req.body;
   const sessionId = 'qr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-  const qrData = JSON.stringify({ sessionId, subject, class: className, division, duration, createdAt: new Date().toISOString() });
+  const qrData = JSON.stringify({ sessionId, subject, class: className, division, duration, teacherId, createdAt: new Date().toISOString() });
 
-  const qrSessions = readData('qr-sessions', []);
+  const qrSessions = await readData('qr-sessions', []);
   qrSessions.push({
     sessionId,
     subject,
@@ -385,7 +489,7 @@ app.post('/api/generate-qr', (req, res) => {
     expiresAt: new Date(Date.now() + duration * 1000).toISOString(),
     scannedStudents: []
   });
-  writeData('qr-sessions', qrSessions);
+  await writeData('qr-sessions', qrSessions);
 
   // Notify clients that a new QR session was created
   sendSseEvent('qr:created', { sessionId, subject, class: className, division })
@@ -394,8 +498,8 @@ app.post('/api/generate-qr', (req, res) => {
 });
 
 // Get QR session status
-app.get('/api/qr-session/:sessionId', (req, res) => {
-  const qrSessions = readData('qr-sessions', []);
+app.get('/api/qr-session/:sessionId', async (req, res) => {
+  const qrSessions = await readData('qr-sessions', []);
   const qrSession = qrSessions.find(s => s.sessionId === req.params.sessionId);
 
   if (!qrSession) {
@@ -412,12 +516,12 @@ app.get('/api/qr-session/:sessionId', (req, res) => {
 });
 
 // Mark attendance via QR
-app.post('/api/mark-attendance', (req, res) => {
+app.post('/api/mark-attendance', async (req, res) => {
   const { qrData, studentMobileNumber } = req.body;
 
   try {
     const qrInfo = JSON.parse(qrData);
-    const qrSessions = readData('qr-sessions', []);
+    const qrSessions = await readData('qr-sessions', []);
     const qrSession = qrSessions.find(s => s.sessionId === qrInfo.sessionId);
 
     if (!qrSession) {
@@ -429,7 +533,7 @@ app.post('/api/mark-attendance', (req, res) => {
     }
 
     // Get student details
-    const students = readData('students', []);
+    const students = await readData('students', []);
     const student = students.find(s => s.mobileNumber === studentMobileNumber);
 
     if (!student) {
@@ -459,10 +563,10 @@ app.post('/api/mark-attendance', (req, res) => {
     };
 
     qrSession.scannedStudents.push(newScan);
-    writeData('qr-sessions', qrSessions);
+    await writeData('qr-sessions', qrSessions);
 
     // Create attendance record with full student details
-    const attendance = readData('attendance', []);
+    const attendance = await readData('attendance', []);
     attendance.push({
       id: 'att_' + Date.now(),
       studentId: student.id,
@@ -476,7 +580,7 @@ app.post('/api/mark-attendance', (req, res) => {
       timestamp: new Date().toISOString(),
       status: 'present'
     });
-    writeData('attendance', attendance);
+    await writeData('attendance', attendance);
 
     // Notify clients that attendance changed (student marked present)
     sendSseEvent('attendance:changed', { studentId: student.id, studentName: student.name, subject: qrInfo.subject })
@@ -493,26 +597,38 @@ app.post('/api/mark-attendance', (req, res) => {
 });
 
 // Verify session
-app.post('/api/verify-session', (req, res) => {
+app.post('/api/verify-session', async (req, res) => {
   const { token } = req.body;
-  const sessions = readData('sessions', []);
+  const sessions = await readData('sessions', []);
   const session = sessions.find(s => s.token === token && new Date() <= new Date(s.expiresAt));
 
   if (!session) {
     return res.status(401).json({ error: 'Invalid or expired session' });
   }
 
-  res.json({ success: true, session });
+  let user = null;
+  if (session.role === 'admin') {
+    const admins = await readData('admins', []);
+    user = admins.find(a => a.id === session.userId);
+  } else if (session.role === 'teacher') {
+    const teachers = await readData('teachers', []);
+    user = teachers.find(t => t.id === session.userId);
+  } else if (session.role === 'student') {
+    const students = await readData('students', []);
+    user = students.find(s => s.id === session.userId) || students.find(s => s.mobileNumber === session.userId.replace('student_', ''));
+  }
+
+  res.json({ success: true, session, user });
 });
 
 // Get attendance records
-app.get('/api/attendance', (req, res) => {
-  const records = readData('attendance', []);
+app.get('/api/attendance', async (req, res) => {
+  const records = await readData('attendance', []);
   res.json({ success: true, records });
 });
 
 // Serve the React app for all other routes (SPA fallback)
-app.get('*', (req, res) => {
+app.get('*', async (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
@@ -522,7 +638,7 @@ if (require.main === module) {
     console.log(`\n✅ Attendance Management System running on port ${PORT}`);
     console.log(`📍 Local: http://localhost:${PORT}`);
     console.log(`📍 Network: http://10.156.20.209:${PORT} (or your LAN IP)`);
-    console.log(`\n🔧 Data directory: ${DATA_DIR}\n`);
+    console.log(`\n🔧 Database: Firebase Firestore\n`);
   });
 
   server.on('error', (err) => {

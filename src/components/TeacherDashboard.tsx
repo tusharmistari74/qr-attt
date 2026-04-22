@@ -18,9 +18,12 @@ import {
   BookOpen,
   BarChart3,
   RefreshCw,
-  Download
+  Download,
+  UserPlus
 } from 'lucide-react'
 import QRCode from 'qrcode'
+import { Input } from './ui/input'
+import { StudentRecordsPanel } from './StudentRecordsPanel'
 
 export function TeacherDashboard() {
   const { user, logout } = useAuth()
@@ -35,6 +38,21 @@ export function TeacherDashboard() {
   const [scannedStudents, setScannedStudents] = useState<any[]>([])
   const [sessionActive, setSessionActive] = useState(false)
   
+  // Student Records
+  const [selectedStudentRecordId, setSelectedStudentRecordId] = useState<string | null>(null)
+
+  // Add student form state
+  const [newStudent, setNewStudent] = useState({
+    name: '',
+    prn: '',
+    rollNumber: '',
+    mobileNumber: '',
+    studentEmail: '',
+    department: '',
+    class: '',
+    division: ''
+  })
+
   // QR Generation form
   const [selectedSubject, setSelectedSubject] = useState('')
   const [selectedClass, setSelectedClass] = useState('')
@@ -153,6 +171,37 @@ export function TeacherDashboard() {
       console.error('Error loading data:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleAddStudent = async () => {
+    if (!newStudent.name || !newStudent.prn || !newStudent.mobileNumber) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    try {
+      const response = await apiClient.addStudent(newStudent)
+
+      if (response.success) {
+        setStudents([...students, response.student])
+        setNewStudent({
+          name: '',
+          prn: '',
+          rollNumber: '',
+          mobileNumber: '',
+          studentEmail: '',
+          department: '',
+          class: '',
+          division: ''
+        })
+        alert('Student added successfully!')
+      } else {
+        alert(`Failed to add student: ${response.error}`)
+      }
+    } catch (error: any) {
+      console.error('Error adding student:', error)
+      alert(`Failed to add student: ${error.message}`)
     }
   }
 
@@ -305,10 +354,10 @@ export function TeacherDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-white/70 text-sm">Subjects</p>
-                  <p className="text-white text-3xl font-bold">{user?.subjects?.length || 0}</p>
+                  <p className="text-white/70 text-sm">All Students (College)</p>
+                  <p className="text-white text-3xl font-bold">{students.length}</p>
                 </div>
-                <BookOpen className="text-white/70 h-8 w-8" />
+                <Users className="text-white/70 h-8 w-8" />
               </div>
             </CardContent>
           </Card>
@@ -633,27 +682,108 @@ export function TeacherDashboard() {
             {/* Students Tab */}
             <TabsContent value="students" className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-white text-xl font-bold uppercase">My Students ({teacherStudents.length})</h3>
+                <h3 className="text-white text-xl font-bold uppercase">Student Management</h3>
               </div>
 
-              <Card className="bg-white/5 border-white/10">
-                <CardContent className="p-6">
-                  <div className="max-h-96 overflow-y-auto space-y-2">
-                    {teacherStudents.map(student => (
-                      <div key={student.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                        <div>
-                          <p className="text-white font-medium">{student.name}</p>
-                          <p className="text-white/70 text-sm">PRN: {student.prn} | Roll: {student.rollNumber}</p>
-                          <p className="text-white/70 text-sm">{student.department} - {student.class} {student.division}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={student.hasAccess ? "default" : "destructive"}>
-                            {student.hasAccess ? "Active" : "Inactive"}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
+              {/* Add Student Form */}
+              <Card className="bg-white/5 border-white/10 mb-6">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <UserPlus size={20} />
+                    Add New Student
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      placeholder="Full Name *"
+                      value={newStudent.name}
+                      onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                    />
+                    <Input
+                      placeholder="PRN *"
+                      value={newStudent.prn}
+                      onChange={(e) => setNewStudent({ ...newStudent, prn: e.target.value })}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                    />
+                    <Input
+                      placeholder="Roll Number"
+                      value={newStudent.rollNumber}
+                      onChange={(e) => setNewStudent({ ...newStudent, rollNumber: e.target.value })}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                    />
+                    <Input
+                      placeholder="Mobile Number *"
+                      value={newStudent.mobileNumber}
+                      onChange={(e) => setNewStudent({ ...newStudent, mobileNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                    />
+                    <Input
+                      placeholder="Email Address"
+                      type="email"
+                      value={newStudent.studentEmail}
+                      onChange={(e) => setNewStudent({ ...newStudent, studentEmail: e.target.value })}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                    />
+                    <Input
+                      placeholder="Department"
+                      value={newStudent.department}
+                      onChange={(e) => setNewStudent({ ...newStudent, department: e.target.value })}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                    />
+                    <Input
+                      placeholder="Class"
+                      value={newStudent.class}
+                      onChange={(e) => setNewStudent({ ...newStudent, class: e.target.value })}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                    />
+                    <Input
+                      placeholder="Division"
+                      value={newStudent.division}
+                      onChange={(e) => setNewStudent({ ...newStudent, division: e.target.value })}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                    />
+                    <Button onClick={handleAddStudent} className="bg-[#D9D9D9] text-black hover:bg-[#C0C0C0] font-bold uppercase md:col-span-2">
+                      Add Student
+                    </Button>
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/5 border-white/10">
+                <CardHeader>
+                  <CardTitle className="text-white">All Students ({students.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  {selectedStudentRecordId ? (
+                    <div>
+                      <Button onClick={() => setSelectedStudentRecordId(null)} className="mb-4 bg-white/20 text-white hover:bg-white/30">
+                        ← Back to Student List
+                      </Button>
+                      <StudentRecordsPanel studentId={selectedStudentRecordId} viewerRole="teacher" />
+                    </div>
+                  ) : (
+                    <div className="max-h-96 overflow-y-auto space-y-2">
+                      {students.map(student => (
+                        <div key={student.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
+                          <div>
+                            <p className="text-white font-medium">{student.name}</p>
+                            <p className="text-white/70 text-sm">PRN: {student.prn} | Roll: {student.rollNumber}</p>
+                            <p className="text-white/70 text-sm">{student.department} - {student.class} {student.division}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={student.hasAccess ? "default" : "destructive"}>
+                              {student.hasAccess ? "Active" : "Inactive"}
+                            </Badge>
+                            <Button size="sm" variant="outline" className="text-white border-white/20 hover:bg-white/10" onClick={() => setSelectedStudentRecordId(student.id)}>
+                              Records
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

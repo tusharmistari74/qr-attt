@@ -47,6 +47,7 @@ export function AddStudentForm({ onAddStudent }: AddStudentFormProps) {
         prn: '',
         rollNumber: '',
         mobileNumber: '',
+        email: '',
         department: '',
         class: '',
         division: ''
@@ -72,7 +73,7 @@ export function AddStudentForm({ onAddStudent }: AddStudentFormProps) {
           className="bg-white border-gray-300 rounded-md"
           required
         />
-        
+
         <Input
           type="text"
           placeholder="Roll Number"
@@ -81,7 +82,7 @@ export function AddStudentForm({ onAddStudent }: AddStudentFormProps) {
           className="bg-white border-gray-300 rounded-md"
           required
         />
-        
+
         <Input
           type="tel"
           placeholder="Mobile Number"
@@ -90,7 +91,16 @@ export function AddStudentForm({ onAddStudent }: AddStudentFormProps) {
           className="bg-white border-gray-300 rounded-md"
           required
         />
-        
+
+        <Input
+          type="email"
+          placeholder="Email Address"
+          value={formData.email}
+          onChange={(e) => handleInputChange('email', e.target.value)}
+          className="bg-white border-gray-300 rounded-md"
+          required
+        />
+
         <Select value={formData.department} onValueChange={(value) => handleInputChange('department', value)}>
           <SelectTrigger className="bg-white border-gray-300 rounded-md">
             <SelectValue placeholder="Department" />
@@ -103,7 +113,7 @@ export function AddStudentForm({ onAddStudent }: AddStudentFormProps) {
             ))}
           </SelectContent>
         </Select>
-        
+
         <Select value={formData.class} onValueChange={(value) => handleInputChange('class', value)}>
           <SelectTrigger className="bg-white border-gray-300 rounded-md">
             <SelectValue placeholder="Class" />
@@ -116,7 +126,7 @@ export function AddStudentForm({ onAddStudent }: AddStudentFormProps) {
             ))}
           </SelectContent>
         </Select>
-        
+
         <Select value={formData.division} onValueChange={(value) => handleInputChange('division', value)}>
           <SelectTrigger className="bg-white border-gray-300 rounded-md">
             <SelectValue placeholder="Division" />
@@ -130,7 +140,7 @@ export function AddStudentForm({ onAddStudent }: AddStudentFormProps) {
           </SelectContent>
         </Select>
       </div>
-      
+
       <Button
         type="submit"
         className="w-full bg-purple-600 text-white hover:bg-purple-700 rounded-lg py-3 flex items-center justify-center gap-2"

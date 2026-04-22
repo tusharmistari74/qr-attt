@@ -21,6 +21,7 @@ import {
   Clock,
   TrendingUp
 } from 'lucide-react'
+import { StudentRecordsPanel } from './StudentRecordsPanel'
 
 export function AdminDashboard() {
   const { user, logout } = useAuth()
@@ -36,6 +37,7 @@ export function AdminDashboard() {
     prn: '',
     rollNumber: '',
     mobileNumber: '',
+    studentEmail: '',
     department: '',
     class: '',
     division: ''
@@ -59,6 +61,7 @@ export function AdminDashboard() {
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null)
   const [isEditStudentOpen, setIsEditStudentOpen] = useState(false)
   const [isEditTeacherOpen, setIsEditTeacherOpen] = useState(false)
+  const [selectedStudentRecordId, setSelectedStudentRecordId] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -160,6 +163,7 @@ export function AdminDashboard() {
           prn: '',
           rollNumber: '',
           mobileNumber: '',
+          studentEmail: '',
           department: '',
           class: '',
           division: ''
@@ -597,6 +601,13 @@ export function AdminDashboard() {
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
                     />
                     <Input
+                      placeholder="Email Address"
+                      type="email"
+                      value={newStudent.studentEmail}
+                      onChange={(e) => setNewStudent({ ...newStudent, studentEmail: e.target.value })}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/60"
+                    />
+                    <Input
                       placeholder="Department"
                       value={newStudent.department}
                       onChange={(e) => setNewStudent({ ...newStudent, department: e.target.value })}
@@ -664,6 +675,13 @@ export function AdminDashboard() {
                           className="bg-white/10 border-white/20 text-white"
                         />
                         <Input
+                          placeholder="Email Address"
+                          type="email"
+                          value={editingStudent.studentEmail || ''}
+                          onChange={(e) => setEditingStudent({ ...editingStudent, studentEmail: e.target.value })}
+                          className="bg-white/10 border-white/20 text-white"
+                        />
+                        <Input
                           placeholder="Department"
                           value={editingStudent.department}
                           onChange={(e) => setEditingStudent({ ...editingStudent, department: e.target.value })}
@@ -708,43 +726,55 @@ export function AdminDashboard() {
                   <CardTitle className="text-white">All Students ({students.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="max-h-96 overflow-y-auto space-y-2">
-                    {students.map(student => (
-                      <div key={student.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                        <div className="flex-1">
-                          <p className="text-white font-medium">{student.name}</p>
-                          <p className="text-white/70 text-sm">PRN: {student.prn} | Roll: {student.rollNumber}</p>
-                          <p className="text-white/70 text-sm">Mobile: {student.mobileNumber}</p>
-                          <p className="text-white/70 text-sm">{student.department} - {student.class} {student.division}</p>
+                  {selectedStudentRecordId ? (
+                    <div>
+                      <Button onClick={() => setSelectedStudentRecordId(null)} className="mb-4 bg-white/20 text-white hover:bg-white/30">
+                        ← Back to Student List
+                      </Button>
+                      <StudentRecordsPanel studentId={selectedStudentRecordId} viewerRole="admin" />
+                    </div>
+                  ) : (
+                    <div className="max-h-96 overflow-y-auto space-y-2">
+                      {students.map(student => (
+                        <div key={student.id} className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
+                          <div className="flex-1">
+                            <p className="text-white font-medium">{student.name}</p>
+                            <p className="text-white/70 text-sm">PRN: {student.prn} | Roll: {student.rollNumber}</p>
+                            <p className="text-white/70 text-sm">Mobile: {student.mobileNumber}</p>
+                            <p className="text-white/70 text-sm">{student.department} - {student.class} {student.division}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={student.hasAccess ? "default" : "destructive"}>
+                              {student.hasAccess ? "Active" : "Inactive"}
+                            </Badge>
+                            <Button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete ${student.name}?`)) {
+                                  handleDeleteStudent(student.id)
+                                }
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="border-red-500/50 text-red-400 hover:bg-red-500/20"
+                            >
+                              <Trash2 size={16} />
+                            </Button>
+                            <Button
+                              onClick={() => startEditStudent(student)}
+                              variant="outline"
+                              size="sm"
+                              className="border-blue-500/50 text-blue-400 hover:bg-blue-500/20"
+                            >
+                              Edit
+                            </Button>
+                            <Button size="sm" variant="outline" className="border-purple-500/50 text-purple-400 hover:bg-purple-500/20" onClick={() => setSelectedStudentRecordId(student.id)}>
+                              Records
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={student.hasAccess ? "default" : "destructive"}>
-                            {student.hasAccess ? "Active" : "Inactive"}
-                          </Badge>
-                          <Button
-                            onClick={() => {
-                              if (confirm(`Are you sure you want to delete ${student.name}?`)) {
-                                handleDeleteStudent(student.id)
-                              }
-                            }}
-                            variant="outline"
-                            size="sm"
-                            className="border-red-500/50 text-red-400 hover:bg-red-500/20"
-                          >
-                            <Trash2 size={16} />
-                          </Button>
-                          <Button
-                            onClick={() => startEditStudent(student)}
-                            variant="outline"
-                            size="sm"
-                            className="border-blue-500/50 text-blue-400 hover:bg-blue-500/20"
-                          >
-                            Edit
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

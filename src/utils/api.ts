@@ -967,12 +967,57 @@ export interface Student {
   prn: string
   rollNumber: string
   mobileNumber: string
+  studentEmail?: string
   department: string
   class: string
   division: string
   hasAccess: boolean
   accessValidUntil: string
   role: 'student'
+  internships?: InternshipRecord[]
+  skills?: SkillRecord[]
+  practicals?: PracticalRecord[]
+  assignments?: AssignmentRecord[]
+  internalExams?: InternalExamRecord[]
+}
+
+export interface InternshipRecord {
+  id: string;
+  company: string;
+  role: string;
+  duration: string;
+  description: string;
+}
+
+export interface SkillRecord {
+  id: string;
+  skillName: string;
+  proficiency: string;
+}
+
+export interface PracticalRecord {
+  id: string;
+  subject: string;
+  experimentName: string;
+  date: string;
+  marks: string;
+}
+
+export interface AssignmentRecord {
+  id: string;
+  subject: string;
+  assignmentName: string;
+  date: string;
+  marks: string;
+}
+
+export interface InternalExamRecord {
+  id: string;
+  subject: string;
+  semester: string;
+  exam1: string;
+  exam2: string;
+  exam3: string;
 }
 
 export interface Teacher {

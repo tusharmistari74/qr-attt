@@ -21,6 +21,7 @@ import {
   History
 } from 'lucide-react'
 import { Html5QrcodeScanner } from 'html5-qrcode'
+import { StudentRecordsPanel } from './StudentRecordsPanel'
 
 export function StudentDashboard() {
   const { user, logout } = useAuth()
@@ -727,6 +728,9 @@ export function StudentDashboard() {
                       </div>
                     )}
                   </div>
+                  
+                  {/* Student Records Panel */}
+                  {user?.id && <StudentRecordsPanel studentId={user.id} viewerRole="student" />}
                 </div>
               </CardContent>
             </Card>
